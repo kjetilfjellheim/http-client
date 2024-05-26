@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'http-client'",
+            "program": "${workspaceFolder}/target/debug/http-client",
+            "args": [
+                "--url=http://127.0.0.1:80",
+                "--connection-timeout=1000",    
+            ],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
