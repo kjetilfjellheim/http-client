@@ -1,7 +1,9 @@
-use std::net::{ToSocketAddrs, TcpStream};
 use url::Url;
 use clap::Parser;
 use std::time::Duration;
+use crate::connection::TcpConnection;
+
+mod connection;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -29,29 +31,16 @@ fn main() {
     };
  
     let connection_timeout = Duration::from_millis(args.connection_timeout);
+    let host = url_parts.host_str().unwrap_or("localhost").to_string();
+    let port = url_parts.port_or_known_default().unwrap_or(80);
 
-    let mut use_socket_addr = String::new();
-    use_socket_addr.push_str(url_parts.host_str().expect("Missing host")); 
-    use_socket_addr.push(':');
-    use_socket_addr.push_str(url_parts.port_or_known_default().expect("Missing port").to_string().as_str());
+    let connection = TcpConnection::new(host.clone(), port, connection_timeout);
 
-    let socket_addr = use_socket_addr.to_socket_addrs().unwrap().next();
-    println!("Connecting to host");
-
-    match socket_addr {
-        Some(socket_addr) => {
-            let stream_result: Result<TcpStream, std::io::Error> = TcpStream::connect_timeout(&socket_addr, connection_timeout);
-            match stream_result {
-                Ok(_stream) => {
-                    println!("Connected to host");
-                },
-                Err(err) => {
-                    println!("Failed connecting to host: {}", err);
-                }
-            };
-        },
-        None => { panic!("No socket address could be parsed") }
-
-    }
+    let connect = connection.connect();
+    let _tcp_stream = match connect {
+        Ok(tcp_stream) => { tcp_stream },
+        Err(err) => { panic!("Connection failed: {}", err.message);  }
+    };
+    println!("Connection successful {}:{}", &host, port)
 
 }
