@@ -1,46 +1,53 @@
 use url::Url;
-use clap::Parser;
 use std::time::Duration;
+
+use clap::Parser;
+
+use crate::common::{ ClientError, ClientErrorType, Arguments };
 use crate::connection::TcpConnection;
+use crate::http::HttpClient;
 
 mod connection;
-
-/// Simple program to greet a person
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// Url to connect to.
-    #[arg(short, long)]
-    url: String,
-    
-    /// Connection timeout
-    #[arg(short, long)]
-    connection_timeout: u64
-}
+mod http;
+mod common;
 
 fn main() {
     // Parsing arguments
-    let args = Args::parse();
+    let args = Arguments::parse();
 
     // Parsing url
     let url_parts: Url = if let Ok(url_result) = Url::parse(&args.url) {
-        println!("Successfully parsed url");
         url_result
     } else {
         panic!("Failed could not parse url");
     };
  
+    //Connect
     let connection_timeout = Duration::from_millis(args.connection_timeout);
     let host = url_parts.host_str().unwrap_or("localhost").to_string();
     let port = url_parts.port_or_known_default().unwrap_or(80);
+    let tcp_connection = TcpConnection::new(host.clone(), port, connection_timeout);
 
-    let connection = TcpConnection::new(host.clone(), port, connection_timeout);
+    let result: Result<(), ClientError>  = match url_parts.scheme() {
+        "http" => { 
+            let  _http_client: HttpClient = HttpClient::new(tcp_connection);
+            Ok(())
+         },
+        "https" => { 
+            let  _http_client: HttpClient = HttpClient::new(tcp_connection);
+            Ok(())
+         },
+        "tcp" => { 
+            tcp_connection.connect()
 
-    let connect = connection.connect();
-    let _tcp_stream = match connect {
-        Ok(tcp_stream) => { tcp_stream },
-        Err(err) => { panic!("Connection failed: {}", err.message);  }
+        },
+        _ => { Err(ClientError::new(ClientErrorType::UnsupportedScheme, "Unsupported scheme".to_string())) }
+
     };
-    println!("Connection successful {}:{}", &host, port)
+    
+    match result {
+        Ok(_) => { println!("Success") },
+        Err(err) => { panic!("Failed {}", err.message); }
+    }
 
 }

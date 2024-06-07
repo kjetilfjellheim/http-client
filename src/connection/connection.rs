@@ -1,22 +1,13 @@
 use std::net::{ ToSocketAddrs, TcpStream };
 use std::time::Duration;
-
-pub struct ConnectionError {
-    pub message: String
-}
-
-impl ConnectionError {
-    fn new(message: String) -> ConnectionError {
-        ConnectionError {
-            message
-        }
-    }
-}
+use std::option::Option;
+use crate::common::{ ClientError, ClientErrorType};
 
 pub struct TcpConnection {
     host: String,
     port: u16,
-    connection_timeout: Duration
+    connection_timeout: Duration,
+    tcp_stream: Option<TcpStream>
 }
 
 impl TcpConnection {
@@ -25,33 +16,42 @@ impl TcpConnection {
         TcpConnection {
             host,
             port,
-            connection_timeout
+            connection_timeout,
+            tcp_stream: None
         }
     }
 
-    pub fn connect(&self) -> Result<TcpStream, ConnectionError> {
+    pub fn connect(mut self) -> Result<(), ClientError> {
         let connect_str = self.get_connect_str();
         let socket_addr = &connect_str.to_socket_addrs();
         let socket_addr= match socket_addr {
             Ok(socket_addr) => { socket_addr.clone().next() },
-            Err(err) => { return Err(ConnectionError::new(err.to_string())) }
+            Err(err) => { return Err(ClientError::new(ClientErrorType::IncorrectSocketAddr, err.to_string())) }
         };
 
         let socket_addr = match socket_addr {
             Some(socket_addr) => { socket_addr },
-            None => { return Err(ConnectionError::new("Could not get socket address".to_string())) }
+            None => { return Err(ClientError::new(ClientErrorType::IncorrectSocketAddr,"Could not get socket address".to_string())) }
         };
 
         let stream_result: Result<TcpStream, std::io::Error> = TcpStream::connect_timeout(&socket_addr, self.connection_timeout);
-        let tcp_stream = match stream_result {
+        self.tcp_stream = match stream_result {
             Ok(stream) => {
-                stream
+                Some(stream)
             },
             Err(err) => {
-                return Err(ConnectionError::new(err.to_string()))
+                return Err(ClientError::new(ClientErrorType::ConnectionFailure, err.to_string()))
             }
         };
-        Ok(tcp_stream)
+        Ok(())
+    }
+
+    pub fn disconnect(mut self, ignore_error: bool) -> Result<(), ClientError> {
+        if !ignore_error && self.tcp_stream.is_some() {
+            return Err(ClientError::new(ClientErrorType::DisconnectionFailed, "No connection open".to_string()));
+        }
+        self.tcp_stream = None;
+        Ok(())
     }
 
     fn get_connect_str(&self) -> String {
