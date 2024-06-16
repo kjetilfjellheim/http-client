@@ -1,4 +1,4 @@
 mod http;
 
-pub use http::HttpClient;
+pub use { http::HttpClient, http::HttpRequest };
 

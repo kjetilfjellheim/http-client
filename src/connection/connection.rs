@@ -1,3 +1,4 @@
+use std::io::{Read, Write};
 use std::net::{ ToSocketAddrs, TcpStream };
 use std::time::Duration;
 use std::option::Option;
@@ -21,7 +22,7 @@ impl TcpConnection {
         }
     }
 
-    pub fn connect(mut self) -> Result<(), ClientError> {
+    pub fn connect(&mut self) -> Result<(), ClientError> {
         let connect_str = self.get_connect_str();
         let socket_addr = &connect_str.to_socket_addrs();
         let socket_addr= match socket_addr {
@@ -33,7 +34,7 @@ impl TcpConnection {
             Some(socket_addr) => { socket_addr },
             None => { return Err(ClientError::new(ClientErrorType::IncorrectSocketAddr,"Could not get socket address".to_string())) }
         };
-
+        println!("Connecting {}", &connect_str);
         let stream_result: Result<TcpStream, std::io::Error> = TcpStream::connect_timeout(&socket_addr, self.connection_timeout);
         self.tcp_stream = match stream_result {
             Ok(stream) => {
@@ -43,15 +44,43 @@ impl TcpConnection {
                 return Err(ClientError::new(ClientErrorType::ConnectionFailure, err.to_string()))
             }
         };
+        println!("Connected {}", &connect_str);
         Ok(())
     }
 
-    pub fn disconnect(mut self, ignore_error: bool) -> Result<(), ClientError> {
-        if !ignore_error && self.tcp_stream.is_some() {
-            return Err(ClientError::new(ClientErrorType::DisconnectionFailed, "No connection open".to_string()));
+    pub fn write(&mut self, request_str: &String) -> Result<(), ClientError>{
+        let mut tcp_stream = match &self.tcp_stream {
+            None => return Err(ClientError::new(ClientErrorType::NoAvailableTcpStream, "Could not retrieve tcp stream".to_string())),
+            Some(tcp_stream) => tcp_stream
+        };
+        tcp_stream.set_read_timeout(Some(Duration::from_millis(1)));
+        println!("Writing request {}", request_str);
+        let write_result = tcp_stream.write_all(request_str.as_bytes());
+        match write_result {
+            Ok(_) => Ok(()),
+            Err(_) => Err(ClientError::new(ClientErrorType::WriteError, "Could not write data".to_string()))
         }
-        self.tcp_stream = None;
-        Ok(())
+    }
+
+    pub fn read(self) -> Result<String, ClientError> {
+        let mut tcp_stream = match self.tcp_stream {
+            None => return Err(ClientError::new(ClientErrorType::NoAvailableTcpStream, "Could not retrieve tcp stream".to_string())),
+            Some(tcp_stream) => tcp_stream
+        };
+        let mut buffer:Vec<u8> = Vec::new();
+        let read_result = tcp_stream.read_to_end(buffer.as_mut());
+        match read_result {
+            Ok(_) => {
+                let response = String::from_utf8(buffer).unwrap();
+                println!("Reading response {}", response);
+                Ok(response) 
+            },
+            Err(_) => Err(ClientError::new(ClientErrorType::WriteError, "Could not read data".to_string()))
+        }
+    }
+
+    pub fn is_not_connected(&self) -> bool  {
+        !self.tcp_stream.is_some()
     }
 
     fn get_connect_str(&self) -> String {

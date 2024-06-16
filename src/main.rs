@@ -1,10 +1,11 @@
 use url::Url;
+use std::collections::HashMap;
 use std::time::Duration;
 
 use clap::Parser;
 
 use crate::common::{ ClientError, ClientErrorType, Arguments };
-use crate::connection::TcpConnection;
+use crate::http::HttpRequest;
 use crate::http::HttpClient;
 
 mod connection;
@@ -23,30 +24,27 @@ fn main() {
     };
  
     //Connect
-    let connection_timeout = Duration::from_millis(args.connection_timeout);
+    let connection_timeout = Duration::from_millis(match args.connection_timeout {
+        Some(connection_timeout) => connection_timeout,
+        None => 1000
+    });
     let host = url_parts.host_str().unwrap_or("localhost").to_string();
-    let port = url_parts.port_or_known_default().unwrap_or(80);
-    let tcp_connection = TcpConnection::new(host.clone(), port, connection_timeout);
+    let port: u16 = url_parts.port_or_known_default().unwrap_or(80);
 
-    let result: Result<(), ClientError>  = match url_parts.scheme() {
+    let http_client_result = match url_parts.scheme() {
         "http" => { 
-            let  _http_client: HttpClient = HttpClient::new(tcp_connection);
-            Ok(())
+            Ok(HttpClient::new(host, port, connection_timeout))
          },
         "https" => { 
-            let  _http_client: HttpClient = HttpClient::new(tcp_connection);
-            Ok(())
+            Ok(HttpClient::new(host, port, connection_timeout))
          },
-        "tcp" => { 
-            tcp_connection.connect()
-
-        },
         _ => { Err(ClientError::new(ClientErrorType::UnsupportedScheme, "Unsupported scheme".to_string())) }
-
     };
     
-    match result {
-        Ok(_) => { println!("Success") },
+    match http_client_result {
+        Ok(http_client) => { 
+            http_client.send(HttpRequest::new(url_parts.path().to_string(), args.method.unwrap_or("GET".to_string()), HashMap::new(), None));
+        },
         Err(err) => { panic!("Failed {}", err.message); }
     }
 
