@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::connection::TcpConnection;
-use crate::common::{ ClientError, ClientErrorType };
+use crate::common::ClientError;
 
-
+/**
+ * Http client.
+ * Sends http requests.
+ */
 pub struct HttpClient {
     tcp_connection: TcpConnection
 }
@@ -17,14 +20,19 @@ impl HttpClient {
         }
     }
 
-    pub fn send(mut self, http_request: HttpRequest) -> Result<HttpResponse, ClientError> {
+    pub fn send(mut self, http_request: HttpRequest) -> Result<(), ClientError> {
         if self.tcp_connection.is_not_connected() {
             self.tcp_connection.connect()?
         }
         let request_str: String = self.get_request_string(&http_request);
         let _ = &self.tcp_connection.write(&request_str)?;
         let read_result = &self.tcp_connection.read()?;
-        Ok(HttpResponse::new(200, HashMap::new(), None)) 
+        let body = if read_result.len() > 0 {
+            Some(read_result.clone())
+        } else {
+            None
+        };
+        Ok(()) 
     }
 
     pub fn get_request_string(&self, http_request: &HttpRequest) -> String {
@@ -59,26 +67,5 @@ impl HttpRequest {
             headers,
             body
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct HttpResponse {
-    pub response_code: u16,
-    pub headers: HashMap<String, String>,
-    pub body: Option<String>
-}
-
-impl HttpResponse {
-    pub fn new(response_code: u16, headers: HashMap<String, String>, body: Option<String>) -> HttpResponse {
-        HttpResponse {
-            response_code,
-            headers,
-            body
-        }
-    }
-
-    pub fn is_ok(&self) -> bool {
-        self.response_code >= 200 && self.response_code<=299 
     }
 }

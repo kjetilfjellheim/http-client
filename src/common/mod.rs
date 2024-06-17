@@ -1,3 +1,3 @@
 mod common;
 
-pub use common::{ ClientError, ClientErrorType, Arguments };
+pub use common::{ ClientError, ClientErrorType, Arguments, Parameters };

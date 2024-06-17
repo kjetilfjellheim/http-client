@@ -1,6 +1,4 @@
-use url::Url;
-use std::collections::HashMap;
-use std::time::Duration;
+use common::Parameters;
 
 use clap::Parser;
 
@@ -14,38 +12,40 @@ mod common;
 
 fn main() {
     // Parsing arguments
-    let args = Arguments::parse();
+    let arguments = Arguments::parse();
+    // Converting arguments to parameters used by the client
+    let parameters = Parameters::new(&arguments);
+    // Creating http client
+    let http_client_result = get_http_client(&parameters);
+    // Sending request
+    send_request(http_client_result, parameters);
+}
 
-    // Parsing url
-    let url_parts: Url = if let Ok(url_result) = Url::parse(&args.url) {
-        url_result
-    } else {
-        panic!("Failed could not parse url");
-    };
- 
-    //Connect
-    let connection_timeout = Duration::from_millis(match args.connection_timeout {
-        Some(connection_timeout) => connection_timeout,
-        None => 1000
-    });
-    let host = url_parts.host_str().unwrap_or("localhost").to_string();
-    let port: u16 = url_parts.port_or_known_default().unwrap_or(80);
-
-    let http_client_result = match url_parts.scheme() {
-        "http" => { 
-            Ok(HttpClient::new(host, port, connection_timeout))
-         },
-        "https" => { 
-            Ok(HttpClient::new(host, port, connection_timeout))
-         },
-        _ => { Err(ClientError::new(ClientErrorType::UnsupportedScheme, "Unsupported scheme".to_string())) }
-    };
-    
+fn send_request(http_client_result: Result<HttpClient, ClientError>, parameters: Parameters) {
     match http_client_result {
         Ok(http_client) => { 
-            http_client.send(HttpRequest::new(url_parts.path().to_string(), args.method.unwrap_or("GET".to_string()), HashMap::new(), None));
+            let http_result = http_client.send(HttpRequest::new(parameters.path, parameters.method, parameters.headers, parameters.body));
+            match http_result {
+                Ok(http_response) => {
+                    println!("Response: {:?}", http_response);
+                },
+                Err(err) => { println!("Failed {}", err.message); }
+            }
         },
-        Err(err) => { panic!("Failed {}", err.message); }
+        Err(err) => { println!("Failed {}", err.message); }
     }
-
 }
+
+fn get_http_client(parameters: &Parameters) -> Result<HttpClient, ClientError> {
+    match parameters.scheme.as_str() {
+        "http" => { 
+            Ok(HttpClient::new( parameters.connect_host.clone(), parameters.connect_port.clone(), parameters.connection_timeout))
+         },
+        "https" => { 
+            Ok(HttpClient::new(parameters.connect_host.clone(), parameters.connect_port.clone(), parameters.connection_timeout))
+         },
+        _ => { Err(ClientError::new(ClientErrorType::UnsupportedScheme, "Unsupported scheme".to_string())) }
+    }
+}
+
+
