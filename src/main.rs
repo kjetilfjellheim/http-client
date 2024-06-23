@@ -10,29 +10,29 @@ mod connection;
 mod http;
 mod common;
 
-fn main() {
+fn main() -> Result<(), ClientError> {
     // Parsing arguments
     let arguments = Arguments::parse();
     // Converting arguments to parameters used by the client
-    let parameters = Parameters::new(&arguments);
+    let parameters = Parameters::new(&arguments)?;
     // Creating http client
-    let http_client_result = get_http_client(&parameters);
+    let http_client = get_http_client(&parameters)?;
     // Sending request
-    send_request(http_client_result, parameters);
+    send_request(http_client, parameters)?;
+    // Ok
+    Ok(())
 }
 
-fn send_request(http_client_result: Result<HttpClient, ClientError>, parameters: Parameters) {
-    match http_client_result {
-        Ok(http_client) => { 
-            let http_result = http_client.send(HttpRequest::new(parameters.path, parameters.method, parameters.headers, parameters.body));
-            match http_result {
-                Ok(http_response) => {
-                    println!("Response: {:?}", http_response);
-                },
-                Err(err) => { println!("Failed {}", err.message); }
-            }
+fn send_request(http_client: HttpClient, parameters: Parameters) -> Result<(), ClientError> {
+    let http_request = HttpRequest::new(parameters.path, parameters.method, parameters.headers, parameters.body);
+    println!("Http request : {:?}", http_request);
+    let http_result = http_client.send(http_request);
+    match http_result {
+        Ok(http_response) => {
+            println!("Http response : {:?}", http_response);
+            Ok(())
         },
-        Err(err) => { println!("Failed {}", err.message); }
+        Err(err) => { Err(err) }
     }
 }
 
