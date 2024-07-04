@@ -57,10 +57,6 @@ pub fn base64_encode(str: &str) -> String {
 
 }
 
-pub fn base64_decode(str: &str) -> String {
-    "".to_string()
-}
-
 #[cfg(test)]
 mod test {
  

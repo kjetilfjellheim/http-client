@@ -8,7 +8,9 @@
             "program": "${workspaceFolder}/target/debug/http-client",
             "args": [
                 "--url=http://127.0.0.1:80",
-                "--connection-timeout=1000",    
+                "--connection-timeout=1000", 
+                "--proxyhost=localhost",
+                "--proxyport=8888",   
             ],
             "cwd": "${workspaceFolder}"
         }
