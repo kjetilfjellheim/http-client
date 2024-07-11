@@ -121,6 +121,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "network"), ignore)]
     fn test_is_not_connected() {
         let mut tcp_connection = TcpConnection::new("localhost".to_string(), 80, Duration::from_secs(5));
         assert_eq!(tcp_connection.is_not_connected(), true);
