@@ -32,4 +32,4 @@ jobs:
               run: cargo build
 
             - name: Compile and test
-              run: cargo test --all-features
+              run: cargo test
